@@ -91,14 +91,25 @@
             <label for="fee">401(k) Annual Fee (%):</label>
             <input type="number" id="fee" step="any" min="0" value="0.05" required>
 
+            <label for="incomeTax">Current Income Tax Rate (%):</label>
+            <input type="number" id="incomeTax" step="any" min="0" max="100" value="24" required>
+
+            <label for="retirementTax">Retirement Tax Rate (%):</label>
+            <input type="number" id="retirementTax" step="any" min="0" max="100" value="22" required>
+
+            <label for="capitalGainsTax">Capital Gains Tax Rate (%):</label>
+            <input type="number" id="capitalGainsTax" step="any" min="0" max="100" value="15" required>
+
             <button type="submit">Calculate</button>
         </form>
         <div id="results">
             <h2>Results</h2>
+            <p id="btcBeforeTax"></p>
             <p id="btcResult"></p>
+            <p id="401kBeforeTax"></p>
             <p id="401kResult"></p>
             <p id="comparison"></p>
-            <p><strong>Notes:</strong> Assumes constant growth rates and annual contributions. BTC is volatile with high risk; 401(k) is more stable. BTC is liquid; 401(k) is locked until retirement. BTC gains are taxed on sale; 401(k) withdrawals are taxed as income. Consult a financial advisor.</p>
+            <p><strong>Notes:</strong> BTC uses post-tax money (taxed upfront at income rate), with gains taxed at capital gains rate. 401(k) uses pre-tax money, taxed at retirement rate on withdrawal. Assumes constant growth rates and annual contributions at year-end.</p>
         </div>
     </div>
 
@@ -110,9 +121,12 @@
             const P = parseFloat(document.getElementById('contribution').value);
             const m = parseFloat(document.getElementById('match').value);
             const n = parseInt(document.getElementById('duration').value);
-            const r_BTC = parseFloat(document.getElementById('btcGrowth').value);
-            const r_401k = parseFloat(document.getElementById('401kReturn').value);
-            const f = parseFloat(document.getElementById('fee').value);
+            const r_BTC = parseFloat(document.getElementById('btcGrowth').value) / 100;
+            const r_401k = parseFloat(document.getElementById('401kReturn').value) / 100;
+            const f = parseFloat(document.getElementById('fee').value) / 100;
+            const incomeTax = parseFloat(document.getElementById('incomeTax').value) / 100;
+            const retirementTax = parseFloat(document.getElementById('retirementTax').value) / 100;
+            const capitalGainsTax = parseFloat(document.getElementById('capitalGainsTax').value) / 100;
 
             // Validate contribution limit
             if (P > 23500) {
@@ -122,20 +136,36 @@
                 document.getElementById('contributionError').style.display = 'none';
             }
 
-            // Calculate BTC future value
-            const FV_BTC = P * (((1 + r_BTC / 100) ** n - 1) / (r_BTC / 100));
+            // BTC: Year-by-year calculation
+            const P_BTC_afterTax = P * (1 - incomeTax);
+            let btcBalance = 0;
+            for (let year = 1; year <= n; year++) {
+                btcBalance = (btcBalance + P_BTC_afterTax) * (1 + r_BTC);
+            }
+            const FV_BTC_beforeTax = btcBalance;
+            const totalInvested_BTC = P_BTC_afterTax * n;
+            const gains_BTC = FV_BTC_beforeTax - totalInvested_BTC;
+            const taxOnGains = gains_BTC * capitalGainsTax;
+            const FV_BTC = FV_BTC_beforeTax - taxOnGains;
 
-            // Calculate 401(k) future value
+            // 401(k): Year-by-year calculation
             const P_total = P * (1 + m / 100);
-            const r_effective = (r_401k - f) / 100;
-            const FV_401k = P_total * (((1 + r_effective) ** n - 1) / r_effective);
+            const r_effective = r_401k - f;
+            let kBalance = 0;
+            for (let year = 1; year <= n; year++) {
+                kBalance = (kBalance + P_total) * (1 + r_effective);
+            }
+            const FV_401k_beforeTax = kBalance;
+            const FV_401k = FV_401k_beforeTax * (1 - retirementTax);
 
             // Display results
-            document.getElementById('btcResult').textContent = `Projected BTC Value after ${n} years: $${FV_BTC.toFixed(2)}`;
-            document.getElementById('401kResult').textContent = `Projected 401(k) Value after ${n} years: $${FV_401k.toFixed(2)}`;
+            document.getElementById('btcBeforeTax').textContent = `BTC Before Capital Gains Tax: $${FV_BTC_beforeTax.toFixed(2)}`;
+            document.getElementById('btcResult').textContent = `BTC After All Taxes: $${FV_BTC.toFixed(2)}`;
+            document.getElementById('401kBeforeTax').textContent = `401(k) Before Tax (at withdrawal): $${FV_401k_beforeTax.toFixed(2)}`;
+            document.getElementById('401kResult').textContent = `401(k) After Tax: $${FV_401k.toFixed(2)}`;
             const comparison = FV_BTC > FV_401k 
-                ? `BTC is higher by $${(FV_BTC - FV_401k).toFixed(2)}` 
-                : `401(k) is higher by $${(FV_401k - FV_BTC).toFixed(2)}`;
+                ? `BTC is higher by $${(FV_BTC - FV_401k).toFixed(2)} after all taxes` 
+                : `401(k) is higher by $${(FV_401k - FV_BTC).toFixed(2)} after all taxes`;
             document.getElementById('comparison').textContent = comparison;
 
             document.getElementById('results').style.display = 'block';
