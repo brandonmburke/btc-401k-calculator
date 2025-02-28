@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BTC vs. 401(k) Calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .calculator {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        label {
+            display: block;
+            margin: 10px 0 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #results {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            display: none;
+        }
+        #results h2 {
+            margin-top: 0;
+            color: #333;
+        }
+        #results p {
+            margin: 5px 0;
+        }
+        .error {
+            color: red;
+            font-size: 0.9em;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>BTC vs. 401(k) Calculator</h1>
+    <div class="calculator">
+        <form id="calcForm" onsubmit="calculate(event)">
+            <label for="contribution">Annual Contribution ($) (Max $23,500):</label>
+            <input type="number" id="contribution" step="any" min="0" max="23500" value="23500" required>
+            <p id="contributionError" class="error">Contribution cannot exceed $23,500.</p>
+
+            <label for="match">Employer Match Percentage (%):</label>
+            <input type="number" id="match" step="any" min="0" value="4" required>
+
+            <label for="duration">Duration (Years):</label>
+            <input type="number" id="duration" min="1" value="5" required>
+
+            <label for="btcGrowth">Assumed BTC Growth Rate (%):</label>
+            <input type="number" id="btcGrowth" step="any" min="0" value="50" required>
+
+            <label for="401kReturn">Assumed 401(k) Return Rate (%):</label>
+            <input type="number" id="401kReturn" step="any" min="0" value="15" required>
+
+            <label for="fee">401(k) Annual Fee (%):</label>
+            <input type="number" id="fee" step="any" min="0" value="0.05" required>
+
+            <button type="submit">Calculate</button>
+        </form>
+        <div id="results">
+            <h2>Results</h2>
+            <p id="btcResult"></p>
+            <p id="401kResult"></p>
+            <p id="comparison"></p>
+            <p><strong>Notes:</strong> Assumes constant growth rates and annual contributions. BTC is volatile with high risk; 401(k) is more stable. BTC is liquid; 401(k) is locked until retirement. BTC gains are taxed on sale; 401(k) withdrawals are taxed as income. Consult a financial advisor.</p>
+        </div>
+    </div>
+
+    <script>
+        function calculate(event) {
+            event.preventDefault();
+
+            // Get input values
+            const P = parseFloat(document.getElementById('contribution').value);
+            const m = parseFloat(document.getElementById('match').value);
+            const n = parseInt(document.getElementById('duration').value);
+            const r_BTC = parseFloat(document.getElementById('btcGrowth').value);
+            const r_401k = parseFloat(document.getElementById('401kReturn').value);
+            const f = parseFloat(document.getElementById('fee').value);
+
+            // Validate contribution limit
+            if (P > 23500) {
+                document.getElementById('contributionError').style.display = 'block';
+                return;
+            } else {
+                document.getElementById('contributionError').style.display = 'none';
+            }
+
+            // Calculate BTC future value
+            const FV_BTC = P * (((1 + r_BTC / 100) ** n - 1) / (r_BTC / 100));
+
+            // Calculate 401(k) future value
+            const P_total = P * (1 + m / 100);
+            const r_effective = (r_401k - f) / 100;
+            const FV_401k = P_total * (((1 + r_effective) ** n - 1) / r_effective);
+
+            // Display results
+            document.getElementById('btcResult').textContent = `Projected BTC Value after ${n} years: $${FV_BTC.toFixed(2)}`;
+            document.getElementById('401kResult').textContent = `Projected 401(k) Value after ${n} years: $${FV_401k.toFixed(2)}`;
+            const comparison = FV_BTC > FV_401k 
+                ? `BTC is higher by $${(FV_BTC - FV_401k).toFixed(2)}` 
+                : `401(k) is higher by $${(FV_401k - FV_BTC).toFixed(2)}`;
+            document.getElementById('comparison').textContent = comparison;
+
+            document.getElementById('results').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
