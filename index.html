@@ -7,86 +7,155 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f5f5f5;
+            font-family: 'Orbitron', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2b2b2b 100%);
+            color: #fff;
             display: flex;
             justify-content: center;
             flex-wrap: wrap;
+            min-height: 100vh;
         }
         h1 {
             text-align: center;
-            color: #333;
+            color: #ffd700;
             width: 100%;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+            margin-bottom: 20px;
         }
         .container {
             display: flex;
-            max-width: 1200px;
+            max-width: 1400px;
             width: 100%;
-            gap: 20px;
+            gap: 30px;
         }
         .calculator, .chart-container {
-            background-color: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            background: rgba(255, 255, 255, 0.05);
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
         .calculator {
             flex: 1;
             min-width: 300px;
         }
         .chart-container {
-            flex: 1;
+            flex: 1.5;
             min-width: 300px;
             position: relative;
         }
         label {
             display: block;
-            margin: 10px 0 5px;
+            margin: 15px 0 5px;
             font-weight: bold;
+            color: #ffd700;
         }
         input {
             width: 100%;
-            padding: 8px;
-            margin-bottom: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ffd700;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
             box-sizing: border-box;
+            transition: all 0.3s ease;
+        }
+        input:focus {
+            border-color: #00ffcc;
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+            outline: none;
         }
         button {
             width: 100%;
-            padding: 10px;
-            background-color: #007BFF;
-            color: white;
+            padding: 12px;
+            background: linear-gradient(45deg, #ffd700, #ff9900);
+            color: #1a1a1a;
             border: none;
-            border-radius: 4px;
+            border-radius: 8px;
             cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s ease;
         }
         button:hover {
-            background-color: #0056b3;
+            transform: scale(1.05);
         }
         #results {
             margin-top: 20px;
             padding: 15px;
-            background-color: #e9ecef;
-            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
         }
         #results h2 {
             margin-top: 0;
-            color: #333;
+            color: #ffd700;
         }
         #results p {
             margin: 5px 0;
+            color: #e0e0e0;
         }
         .error {
-            color: red;
+            color: #ff5555;
             font-size: 0.9em;
             display: none;
+        }
+        .toggle-container {
+            margin: 20px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .toggle-container label {
+            margin: 0;
+            color: #ffd700;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #00ffcc;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
         }
         canvas {
             width: 100% !important;
             height: auto !important;
         }
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
     </style>
 </head>
 <body>
@@ -133,6 +202,14 @@
                 <p id="comparison"></p>
                 <p><strong>Notes:</strong> BTC uses post-tax money (taxed at income rate), gains taxed at capital gains rate. 401(k) uses pre-tax money, taxed at retirement rate. Assumes contributions at year-end.</p>
             </div>
+            <div class="toggle-container">
+                <label>Graph Tax View:</label>
+                <label class="switch">
+                    <input type="checkbox" id="taxToggle" onchange="updateChart()">
+                    <span class="slider"></span>
+                </label>
+                <span>Pre-Tax / Post-Tax</span>
+            </div>
         </div>
         <div class="chart-container">
             <canvas id="growthChart"></canvas>
@@ -141,6 +218,7 @@
 
     <script>
         let chart;
+        let btcPreTaxData, btcPostTaxData, kPreTaxData, kPostTaxData, years;
 
         function calculate(event) {
             event.preventDefault();
@@ -166,28 +244,31 @@
 
             // BTC: Year-by-year calculation
             const P_BTC_afterTax = P * (1 - incomeTax);
-            let btcBalance = 0;
-            const btcData = [0]; // Starting at year 0
+            let btcBalancePre = 0, btcBalancePost = 0;
+            btcPreTaxData = [0];
+            btcPostTaxData = [0];
             for (let year = 1; year <= n; year++) {
-                btcBalance = (btcBalance + P_BTC_afterTax) * (1 + r_BTC);
-                btcData.push(btcBalance);
+                btcBalancePre = (btcBalancePre + P_BTC_afterTax) * (1 + r_BTC);
+                btcPreTaxData.push(btcBalancePre);
+                btcBalancePost = year === n ? btcBalancePre - (btcBalancePre - P_BTC_afterTax * n) * capitalGainsTax : btcBalancePre;
+                btcPostTaxData.push(btcBalancePost);
             }
-            const FV_BTC_beforeTax = btcBalance;
-            const totalInvested_BTC = P_BTC_afterTax * n;
-            const gains_BTC = FV_BTC_beforeTax - totalInvested_BTC;
-            const taxOnGains = gains_BTC * capitalGainsTax;
-            const FV_BTC = FV_BTC_beforeTax - taxOnGains;
+            const FV_BTC_beforeTax = btcBalancePre;
+            const FV_BTC = FV_BTC_beforeTax - (FV_BTC_beforeTax - P_BTC_afterTax * n) * capitalGainsTax;
 
             // 401(k): Year-by-year calculation
             const P_total = P * (1 + m);
             const r_effective = r_401k - f;
-            let kBalance = 0;
-            const kData = [0]; // Starting at year 0
+            let kBalancePre = 0, kBalancePost = 0;
+            kPreTaxData = [0];
+            kPostTaxData = [0];
             for (let year = 1; year <= n; year++) {
-                kBalance = (kBalance + P_total) * (1 + r_effective);
-                kData.push(kBalance);
+                kBalancePre = (kBalancePre + P_total) * (1 + r_effective);
+                kPreTaxData.push(kBalancePre);
+                kBalancePost = year === n ? kBalancePre * (1 - retirementTax) : kBalancePre;
+                kPostTaxData.push(kBalancePost);
             }
-            const FV_401k_beforeTax = kBalance;
+            const FV_401k_beforeTax = kBalancePre;
             const FV_401k = FV_401k_beforeTax * (1 - retirementTax);
 
             // Display results
@@ -202,25 +283,35 @@
 
             document.getElementById('results').style.display = 'block';
 
-            // Update chart
+            // Store years for chart
+            years = Array.from({ length: n + 1 }, (_, i) => `Year ${i}`);
+
+            // Initial chart render
+            updateChart();
+        }
+
+        function updateChart() {
+            const isPostTax = document.getElementById('taxToggle').checked;
             if (chart) chart.destroy();
             const ctx = document.getElementById('growthChart').getContext('2d');
             chart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: Array.from({ length: n + 1 }, (_, i) => `Year ${i}`),
+                    labels: years,
                     datasets: [
                         {
-                            label: 'BTC (Pre-Tax)',
-                            data: btcData,
+                            label: isPostTax ? 'BTC (Post-Tax)' : 'BTC (Pre-Tax)',
+                            data: isPostTax ? btcPostTaxData : btcPreTaxData,
                             borderColor: '#FF9900',
-                            fill: false
+                            fill: false,
+                            tension: 0.1
                         },
                         {
-                            label: '401(k) (Pre-Tax)',
-                            data: kData,
-                            borderColor: '#007BFF',
-                            fill: false
+                            label: isPostTax ? '401(k) (Post-Tax)' : '401(k) (Pre-Tax)',
+                            data: isPostTax ? kPostTaxData : kPreTaxData,
+                            borderColor: '#00ffcc',
+                            fill: false,
+                            tension: 0.1
                         }
                     ]
                 },
@@ -229,11 +320,16 @@
                     scales: {
                         y: {
                             beginAtZero: true,
-                            title: { display: true, text: 'Value ($)' }
+                            title: { display: true, text: 'Value ($)', color: '#fff' },
+                            ticks: { color: '#e0e0e0' }
                         },
                         x: {
-                            title: { display: true, text: 'Time' }
+                            title: { display: true, text: 'Time', color: '#fff' },
+                            ticks: { color: '#e0e0e0' }
                         }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#fff' } }
                     }
                 }
             });
