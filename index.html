@@ -163,9 +163,9 @@
     <div class="container">
         <div class="calculator">
             <form id="calcForm" onsubmit="calculate(event)">
-                <label for="contribution">Annual Contribution ($) (Max $23,500):</label>
+                <label for="contribution">Total Annual Contribution ($) (Max $23,500, incl. match):</label>
                 <input type="number" id="contribution" step="any" min="0" max="23500" value="23500" required>
-                <p id="contributionError" class="error">Contribution cannot exceed $23,500.</p>
+                <p id="contributionError" class="error">Total contribution cannot exceed $23,500.</p>
 
                 <label for="match">Employer Match Percentage (%):</label>
                 <input type="number" id="match" step="any" min="0" value="4" required>
@@ -195,12 +195,14 @@
             </form>
             <div id="results">
                 <h2>Results</h2>
+                <p id="yourContribution"></p>
+                <p id="total401kContribution"></p>
                 <p id="btcBeforeTax"></p>
                 <p id="btcResult"></p>
                 <p id="401kBeforeTax"></p>
                 <p id="401kResult"></p>
                 <p id="comparison"></p>
-                <p><strong>Notes:</strong> BTC uses post-tax money (taxed at income rate), gains taxed at capital gains rate. 401(k) uses pre-tax money, taxed at retirement rate. Assumes contributions at year-end.</p>
+                <p><strong>Notes:</strong> Total 401(k) contribution includes your contribution plus employer match, capped at $23,500. BTC uses post-tax money, gains taxed at capital gains rate. Assumes contributions at year-end.</p>
             </div>
             <div class="toggle-container">
                 <label>Graph Tax View:</label>
@@ -224,7 +226,7 @@
             event.preventDefault();
 
             // Get input values
-            const P = parseFloat(document.getElementById('contribution').value);
+            const totalContribution = parseFloat(document.getElementById('contribution').value);
             const m = parseFloat(document.getElementById('match').value) / 100;
             const n = parseInt(document.getElementById('duration').value);
             const r_BTC = parseFloat(document.getElementById('btcGrowth').value) / 100;
@@ -234,16 +236,21 @@
             const retirementTax = parseFloat(document.getElementById('retirementTax').value) / 100;
             const capitalGainsTax = parseFloat(document.getElementById('capitalGainsTax').value) / 100;
 
-            // Validate contribution limit
-            if (P > 23500) {
+            // Validate total contribution limit
+            if (totalContribution > 23500) {
                 document.getElementById('contributionError').style.display = 'block';
                 return;
             } else {
                 document.getElementById('contributionError').style.display = 'none';
             }
 
-            // BTC: Year-by-year calculation
-            const P_BTC_afterTax = P * (1 - incomeTax);
+            // Calculate your out-of-pocket contribution for 401(k)
+            const yourContribution = totalContribution / (1 + m); // Your part
+            const employerMatch = yourContribution * m; // Employer part
+            const P_total_401k = totalContribution; // Total 401(k) contribution (you + match)
+
+            // BTC: Year-by-year calculation (full contribution, post-tax)
+            const P_BTC_afterTax = totalContribution * (1 - incomeTax);
             let btcBalancePre = 0, btcBalancePost = 0;
             btcPreTaxData = [0];
             btcPostTaxData = [0];
@@ -257,13 +264,12 @@
             const FV_BTC = FV_BTC_beforeTax - (FV_BTC_beforeTax - P_BTC_afterTax * n) * capitalGainsTax;
 
             // 401(k): Year-by-year calculation
-            const P_total = P * (1 + m);
             const r_effective = r_401k - f;
             let kBalancePre = 0, kBalancePost = 0;
             kPreTaxData = [0];
             kPostTaxData = [0];
             for (let year = 1; year <= n; year++) {
-                kBalancePre = (kBalancePre + P_total) * (1 + r_effective);
+                kBalancePre = (kBalancePre + P_total_401k) * (1 + r_effective);
                 kPreTaxData.push(kBalancePre);
                 kBalancePost = year === n ? kBalancePre * (1 - retirementTax) : kBalancePre;
                 kPostTaxData.push(kBalancePost);
@@ -272,6 +278,8 @@
             const FV_401k = FV_401k_beforeTax * (1 - retirementTax);
 
             // Display results
+            document.getElementById('yourContribution').textContent = `Your 401(k) Contribution: $${yourContribution.toFixed(2)}`;
+            document.getElementById('total401kContribution').textContent = `Total 401(k) Contribution (with match): $${P_total_401k.toFixed(2)}`;
             document.getElementById('btcBeforeTax').textContent = `BTC Before Capital Gains Tax: $${FV_BTC_beforeTax.toFixed(2)}`;
             document.getElementById('btcResult').textContent = `BTC After All Taxes: $${FV_BTC.toFixed(2)}`;
             document.getElementById('401kBeforeTax').textContent = `401(k) Before Tax: $${FV_401k_beforeTax.toFixed(2)}`;
