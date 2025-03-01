@@ -4,23 +4,41 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BTC vs. 401(k) Calculator</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 600px;
-            margin: 20px auto;
-            padding: 20px;
+            margin: 20px;
             background-color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
         }
         h1 {
             text-align: center;
             color: #333;
+            width: 100%;
         }
-        .calculator {
+        .container {
+            display: flex;
+            max-width: 1200px;
+            width: 100%;
+            gap: 20px;
+        }
+        .calculator, .chart-container {
             background-color: white;
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .calculator {
+            flex: 1;
+            min-width: 300px;
+        }
+        .chart-container {
+            flex: 1;
+            min-width: 300px;
+            position: relative;
         }
         label {
             display: block;
@@ -52,7 +70,6 @@
             padding: 15px;
             background-color: #e9ecef;
             border-radius: 4px;
-            display: none;
         }
         #results h2 {
             margin-top: 0;
@@ -66,60 +83,71 @@
             font-size: 0.9em;
             display: none;
         }
+        canvas {
+            width: 100% !important;
+            height: auto !important;
+        }
     </style>
 </head>
 <body>
     <h1>BTC vs. 401(k) Calculator</h1>
-    <div class="calculator">
-        <form id="calcForm" onsubmit="calculate(event)">
-            <label for="contribution">Annual Contribution ($) (Max $23,500):</label>
-            <input type="number" id="contribution" step="any" min="0" max="23500" value="23500" required>
-            <p id="contributionError" class="error">Contribution cannot exceed $23,500.</p>
+    <div class="container">
+        <div class="calculator">
+            <form id="calcForm" onsubmit="calculate(event)">
+                <label for="contribution">Annual Contribution ($) (Max $23,500):</label>
+                <input type="number" id="contribution" step="any" min="0" max="23500" value="23500" required>
+                <p id="contributionError" class="error">Contribution cannot exceed $23,500.</p>
 
-            <label for="match">Employer Match Percentage (%):</label>
-            <input type="number" id="match" step="any" min="0" value="4" required>
+                <label for="match">Employer Match Percentage (%):</label>
+                <input type="number" id="match" step="any" min="0" value="4" required>
 
-            <label for="duration">Duration (Years):</label>
-            <input type="number" id="duration" min="1" value="5" required>
+                <label for="duration">Duration (Years):</label>
+                <input type="number" id="duration" min="1" value="5" required>
 
-            <label for="btcGrowth">Assumed BTC Growth Rate (%):</label>
-            <input type="number" id="btcGrowth" step="any" min="0" value="50" required>
+                <label for="btcGrowth">Assumed BTC Growth Rate (%):</label>
+                <input type="number" id="btcGrowth" step="any" min="0" value="50" required>
 
-            <label for="401kReturn">Assumed 401(k) Return Rate (%):</label>
-            <input type="number" id="401kReturn" step="any" min="0" value="15" required>
+                <label for="401kReturn">Assumed 401(k) Return Rate (%):</label>
+                <input type="number" id="401kReturn" step="any" min="0" value="15" required>
 
-            <label for="fee">401(k) Annual Fee (%):</label>
-            <input type="number" id="fee" step="any" min="0" value="0.05" required>
+                <label for="fee">401(k) Annual Fee (%):</label>
+                <input type="number" id="fee" step="any" min="0" value="0.05" required>
 
-            <label for="incomeTax">Current Income Tax Rate (%):</label>
-            <input type="number" id="incomeTax" step="any" min="0" max="100" value="24" required>
+                <label for="incomeTax">Current Income Tax Rate (%):</label>
+                <input type="number" id="incomeTax" step="any" min="0" max="100" value="24" required>
 
-            <label for="retirementTax">Retirement Tax Rate (%):</label>
-            <input type="number" id="retirementTax" step="any" min="0" max="100" value="22" required>
+                <label for="retirementTax">Retirement Tax Rate (%):</label>
+                <input type="number" id="retirementTax" step="any" min="0" max="100" value="22" required>
 
-            <label for="capitalGainsTax">Capital Gains Tax Rate (%):</label>
-            <input type="number" id="capitalGainsTax" step="any" min="0" max="100" value="15" required>
+                <label for="capitalGainsTax">Capital Gains Tax Rate (%):</label>
+                <input type="number" id="capitalGainsTax" step="any" min="0" max="100" value="15" required>
 
-            <button type="submit">Calculate</button>
-        </form>
-        <div id="results">
-            <h2>Results</h2>
-            <p id="btcBeforeTax"></p>
-            <p id="btcResult"></p>
-            <p id="401kBeforeTax"></p>
-            <p id="401kResult"></p>
-            <p id="comparison"></p>
-            <p><strong>Notes:</strong> BTC uses post-tax money (taxed upfront at income rate), with gains taxed at capital gains rate. 401(k) uses pre-tax money, taxed at retirement rate on withdrawal. Assumes constant growth rates and annual contributions at year-end.</p>
+                <button type="submit">Calculate</button>
+            </form>
+            <div id="results">
+                <h2>Results</h2>
+                <p id="btcBeforeTax"></p>
+                <p id="btcResult"></p>
+                <p id="401kBeforeTax"></p>
+                <p id="401kResult"></p>
+                <p id="comparison"></p>
+                <p><strong>Notes:</strong> BTC uses post-tax money (taxed at income rate), gains taxed at capital gains rate. 401(k) uses pre-tax money, taxed at retirement rate. Assumes contributions at year-end.</p>
+            </div>
+        </div>
+        <div class="chart-container">
+            <canvas id="growthChart"></canvas>
         </div>
     </div>
 
     <script>
+        let chart;
+
         function calculate(event) {
             event.preventDefault();
 
             // Get input values
             const P = parseFloat(document.getElementById('contribution').value);
-            const m = parseFloat(document.getElementById('match').value);
+            const m = parseFloat(document.getElementById('match').value) / 100;
             const n = parseInt(document.getElementById('duration').value);
             const r_BTC = parseFloat(document.getElementById('btcGrowth').value) / 100;
             const r_401k = parseFloat(document.getElementById('401kReturn').value) / 100;
@@ -139,8 +167,10 @@
             // BTC: Year-by-year calculation
             const P_BTC_afterTax = P * (1 - incomeTax);
             let btcBalance = 0;
+            const btcData = [0]; // Starting at year 0
             for (let year = 1; year <= n; year++) {
                 btcBalance = (btcBalance + P_BTC_afterTax) * (1 + r_BTC);
+                btcData.push(btcBalance);
             }
             const FV_BTC_beforeTax = btcBalance;
             const totalInvested_BTC = P_BTC_afterTax * n;
@@ -149,11 +179,13 @@
             const FV_BTC = FV_BTC_beforeTax - taxOnGains;
 
             // 401(k): Year-by-year calculation
-            const P_total = P * (1 + m / 100);
+            const P_total = P * (1 + m);
             const r_effective = r_401k - f;
             let kBalance = 0;
+            const kData = [0]; // Starting at year 0
             for (let year = 1; year <= n; year++) {
                 kBalance = (kBalance + P_total) * (1 + r_effective);
+                kData.push(kBalance);
             }
             const FV_401k_beforeTax = kBalance;
             const FV_401k = FV_401k_beforeTax * (1 - retirementTax);
@@ -161,7 +193,7 @@
             // Display results
             document.getElementById('btcBeforeTax').textContent = `BTC Before Capital Gains Tax: $${FV_BTC_beforeTax.toFixed(2)}`;
             document.getElementById('btcResult').textContent = `BTC After All Taxes: $${FV_BTC.toFixed(2)}`;
-            document.getElementById('401kBeforeTax').textContent = `401(k) Before Tax (at withdrawal): $${FV_401k_beforeTax.toFixed(2)}`;
+            document.getElementById('401kBeforeTax').textContent = `401(k) Before Tax: $${FV_401k_beforeTax.toFixed(2)}`;
             document.getElementById('401kResult').textContent = `401(k) After Tax: $${FV_401k.toFixed(2)}`;
             const comparison = FV_BTC > FV_401k 
                 ? `BTC is higher by $${(FV_BTC - FV_401k).toFixed(2)} after all taxes` 
@@ -169,6 +201,42 @@
             document.getElementById('comparison').textContent = comparison;
 
             document.getElementById('results').style.display = 'block';
+
+            // Update chart
+            if (chart) chart.destroy();
+            const ctx = document.getElementById('growthChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({ length: n + 1 }, (_, i) => `Year ${i}`),
+                    datasets: [
+                        {
+                            label: 'BTC (Pre-Tax)',
+                            data: btcData,
+                            borderColor: '#FF9900',
+                            fill: false
+                        },
+                        {
+                            label: '401(k) (Pre-Tax)',
+                            data: kData,
+                            borderColor: '#007BFF',
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Value ($)' }
+                        },
+                        x: {
+                            title: { display: true, text: 'Time' }
+                        }
+                    }
+                }
+            });
         }
     </script>
 </body>
