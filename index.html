@@ -220,7 +220,7 @@
 
     <script>
         let chart;
-        let btcPreTaxData, btcPostTaxData, kPreTaxData, kPostTaxData, years;
+        let btcPreTaxData, btcPostTaxData, kPreTaxData, kPostTaxData, btcContributions, kContributions, years;
 
         function calculate(event) {
             event.preventDefault();
@@ -245,20 +245,22 @@
             }
 
             // Calculate your out-of-pocket contribution for 401(k)
-            const yourContribution = totalContribution / (1 + m); // Your part
-            const employerMatch = yourContribution * m; // Employer part
-            const P_total_401k = totalContribution; // Total 401(k) contribution (you + match)
+            const yourContribution = totalContribution / (1 + m);
+            const employerMatch = yourContribution * m;
+            const P_total_401k = totalContribution;
 
-            // BTC: Year-by-year calculation (full contribution, post-tax)
+            // BTC: Year-by-year calculation
             const P_BTC_afterTax = totalContribution * (1 - incomeTax);
             let btcBalancePre = 0, btcBalancePost = 0;
             btcPreTaxData = [0];
             btcPostTaxData = [0];
+            btcContributions = [0];
             for (let year = 1; year <= n; year++) {
                 btcBalancePre = (btcBalancePre + P_BTC_afterTax) * (1 + r_BTC);
                 btcPreTaxData.push(btcBalancePre);
                 btcBalancePost = year === n ? btcBalancePre - (btcBalancePre - P_BTC_afterTax * n) * capitalGainsTax : btcBalancePre;
                 btcPostTaxData.push(btcBalancePost);
+                btcContributions.push(P_BTC_afterTax * year);
             }
             const FV_BTC_beforeTax = btcBalancePre;
             const FV_BTC = FV_BTC_beforeTax - (FV_BTC_beforeTax - P_BTC_afterTax * n) * capitalGainsTax;
@@ -268,11 +270,13 @@
             let kBalancePre = 0, kBalancePost = 0;
             kPreTaxData = [0];
             kPostTaxData = [0];
+            kContributions = [0];
             for (let year = 1; year <= n; year++) {
                 kBalancePre = (kBalancePre + P_total_401k) * (1 + r_effective);
                 kPreTaxData.push(kBalancePre);
                 kBalancePost = year === n ? kBalancePre * (1 - retirementTax) : kBalancePre;
                 kPostTaxData.push(kBalancePost);
+                kContributions.push(yourContribution * year);
             }
             const FV_401k_beforeTax = kBalancePre;
             const FV_401k = FV_401k_beforeTax * (1 - retirementTax);
@@ -337,7 +341,23 @@
                         }
                     },
                     plugins: {
-                        legend: { labels: { color: '#fff' } }
+                        legend: { labels: { color: '#fff' } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const datasetIndex = context.datasetIndex;
+                                    const index = context.dataIndex;
+                                    const value = context.parsed.y;
+                                    const contrib = datasetIndex === 0 ? btcContributions[index] : kContributions[index];
+                                    const gain = value - contrib;
+                                    return [
+                                        `${context.dataset.label}: $${value.toFixed(2)}`,
+                                        `Cumulative Contributions: $${contrib.toFixed(2)}`,
+                                        `Total Gain: $${gain.toFixed(2)}`
+                                    ];
+                                }
+                            }
+                        }
                     }
                 }
             });
